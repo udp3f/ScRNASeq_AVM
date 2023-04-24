@@ -1,0 +1,714 @@
+---
+title: "HHT disease model (ALk1 KO mice) and CDKi treatment - P5"
+output: html_notebook
+author: Uma Paila
+Date: Jan 26th 2023
+Edits: Apr 14 2023
+---
+BULK-RNAseq is from P6 and Singlecell data is from P5
+Retinal endothelial cells  from P5 (postnatal day 5) mice. 4 samples; Control, Control+CDKi (inhibitor for cell cycle), ALK1-EC-KO (disease model), ALK1-EC-KO + CDKi
+We will identify the arterial, venous, capillary, tip cell clusters
+We will study the expression of cell cycle genes, arterio-venous identity, BMP signaling (BMP4 and BMP9) and VEGF signaling across the different experimental conditions.
+ALK1 or ACVRL1
+# Smooth muscle marker - Acta2
+# CT and KO - Is there any new cluster/cell-type in KO
+
+############ lATEST EDITIONS TO MAKE FOR THE MANUSCRIPT
+### remove 10,11 unnamed clusters and then do rest
+### marker plot - line 355 (rearrange genes)
+### arterial and venous ident - save high resolution images
+### venous markers in VENous cluster - save high resolution images
+### arterial markers in arterial cluster - save high resolution images
+### TGFb_signaling_in_arterial - high resolution
+### Flt1 featureplot across all conditions
+### Arterial lG1 - final figure
+### eG1 & sg2m nick's - module scores
+
+
+```{r setup, include=FALSE}
+# load required libraries
+library(dplyr)
+library(Seurat)
+library(patchwork)
+#library(formatR)
+library(ggplot2)
+library(viridis)
+sessionInfo()
+```
+# reading count data and filtering: CONTROL (min.cells = 10?)
+
+```{r, chunk1}
+library(rhdf5)
+#Read 10X hdf5 file
+data <- Read10X_h5("/Users/udp3f/Documents/Gael_scRNASeq/CONTROL/filtered_feature_bc_matrix.h5", use.names = TRUE, unique.features = TRUE)
+CT <- CreateSeuratObject(counts = data, project = "CT", min.cells = 3, min.features = 200)
+CT <- PercentageFeatureSet(CT, pattern = "^mt-", col.name = "percent.mt")
+
+VlnPlot(CT, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3)
+FeatureScatter(CT, feature1 = "nFeature_RNA", feature2 = "percent.mt")
+FeatureScatter(CT, feature1 = "nCount_RNA", feature2 = "nFeature_RNA")
+CT <- subset(CT, subset = nFeature_RNA > 200 & nFeature_RNA < 6500 & percent.mt < 8)
+VlnPlot(CT, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3)
+rm(data)
+
+plot1 <- FeatureScatter(CT, feature1 = "nFeature_RNA", feature2 = "percent.mt") # 0 indicates no co-relation for %mt and RNA 
+plot2 <- FeatureScatter(CT, feature1 = "nCount_RNA", feature2 = "nFeature_RNA") # num of detected genes and transcripts are well co-related
+plot1 + plot2
+rm(plot1,plot2)
+
+library(data.table)
+library(magrittr)
+md <- CT@meta.data %>% as.data.table
+md[, .N, by = c("orig.ident")]
+```
+# reading count data and filtering: CONTROL treated with CDK inhibitor
+```{r, chunk2}
+library(rhdf5)
+#Read 10X hdf5 file
+data <- Read10X_h5("/Users/udp3f/Documents/Gael_scRNASeq/CONTROL-CDKi/filtered_feature_bc_matrix.h5", use.names = TRUE, unique.features = TRUE)
+CT_CDKi <- CreateSeuratObject(counts = data, project = "CT_CDKi", min.cells = 3, min.features = 400)
+CT_CDKi <- PercentageFeatureSet(CT_CDKi, pattern = "^mt-", col.name = "percent.mt")
+#CT_CDKi %>% tidyseurat::ggplot(aes(x=nFeature_RNA, y=nCount_RNA, color = percent.mt)) + geom_point() + scale_color_viridis(option="turbo")
+
+VlnPlot(CT_CDKi, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3)
+FeatureScatter(CT_CDKi, feature1 = "nCount_RNA", feature2 = "percent.mt")
+FeatureScatter(CT_CDKi, feature1 = "nCount_RNA", feature2 = "nFeature_RNA")
+CT_CDKi <- subset(CT_CDKi, subset = nFeature_RNA > 200 & nFeature_RNA < 7300 & percent.mt < 3)
+VlnPlot(CT_CDKi, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3)
+rm(data)
+
+plot1 <- FeatureScatter(CT_CDKi, feature1 = "nCount_RNA", feature2 = "percent.mt")
+plot2 <- FeatureScatter(CT_CDKi, feature1 = "nCount_RNA", feature2 = "nFeature_RNA")
+plot1 + plot2
+#CT_CDKi %>% tidyseurat::ggplot(aes(x=nFeature_RNA, y=nCount_RNA, color = percent.mt)) + geom_point() + scale_color_viridis(option="turbo")
+
+```
+# reading count data and filtering: ALK1 KO (disease model)
+```{r, chunk3}
+library(rhdf5)
+#Read 10X hdf5 file
+data <- Read10X_h5("/Users/udp3f/Documents/Gael_scRNASeq/KO/filtered_feature_bc_matrix.h5", use.names = TRUE, unique.features = TRUE)
+KO <- CreateSeuratObject(counts = data, project = "KO", min.cells = 3, min.features = 200)
+KO <- PercentageFeatureSet(KO, pattern = "^mt-", col.name = "percent.mt")
+#KO %>% tidyseurat::ggplot(aes(x=nFeature_RNA, y=nCount_RNA, color = percent.mt)) + geom_point() + scale_color_viridis(option="turbo")
+
+VlnPlot(KO, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3)
+FeatureScatter(KO, feature1 = "nCount_RNA", feature2 = "percent.mt")
+FeatureScatter(KO, feature1 = "nCount_RNA", feature2 = "nFeature_RNA")
+
+FeatureScatter(KO, feature1 = "nCount_RNA", feature2 = "percent.mt")
+KO <- subset(KO, subset = nFeature_RNA > 200 & nFeature_RNA < 7000 & percent.mt < 4)
+VlnPlot(KO, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3)
+rm(data)
+
+plot1 <- FeatureScatter(KO, feature1 = "nCount_RNA", feature2 = "percent.mt")
+plot2 <- FeatureScatter(KO, feature1 = "nCount_RNA", feature2 = "nFeature_RNA")
+plot1 + plot2
+KO %>% tidyseurat::ggplot(aes(x=nFeature_RNA, y=nCount_RNA, color = percent.mt)) + geom_point() + scale_color_viridis(option="turbo")
+```
+# reading count data and filtering: ALK1 KO treated with CDKi (disease treatment)
+```{r, chunk4}
+library(rhdf5)
+#Read 10X hdf5 file
+data <- Read10X_h5("/Users/udp3f/Documents/Gael_scRNASeq/KO-CDKi/filtered_feature_bc_matrix.h5", use.names = TRUE, unique.features = TRUE)
+KO_CDKi <- CreateSeuratObject(counts = data, project = "KO_CDKi", min.cells = 3, min.features = 200)
+KO_CDKi <- PercentageFeatureSet(KO_CDKi, pattern = "^mt-", col.name = "percent.mt")
+VlnPlot(KO_CDKi, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3)
+#KO_CDKi %>% tidyseurat::ggplot(aes(x=nFeature_RNA, y=nCount_RNA, color = percent.mt)) + geom_point() + scale_color_viridis(option="turbo")
+
+FeatureScatter(KO_CDKi, feature1 = "nCount_RNA", feature2 = "percent.mt")
+FeatureScatter(KO_CDKi, feature1 = "nCount_RNA", feature2 = "nFeature_RNA")
+
+KO_CDKi <- subset(KO_CDKi, subset = nFeature_RNA > 200 & nFeature_RNA < 7500 & percent.mt < 4)
+VlnPlot(KO_CDKi, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3)
+rm(data)
+
+plot1 <- FeatureScatter(KO_CDKi, feature1 = "nCount_RNA", feature2 = "percent.mt")
+plot2 <- FeatureScatter(KO_CDKi, feature1 = "nCount_RNA", feature2 = "nFeature_RNA")
+plot1 + plot2
+```
+### We will do cell cycle scoring or regression for this data for cc.difference
+# Run SCTransform
+```{r, chunk5,warning=FALSE, message=FALSE, results='hide'}
+# SCT transform 
+CT <- SCTransform(CT, method = "glmGamPoi", vars.to.regress = c('nCount_RNA', 'percent.mt'), variable.features.n = 3000)
+CT_CDKi <- SCTransform(CT_CDKi, method = "glmGamPoi", vars.to.regress = c('nCount_RNA', 'percent.mt'), variable.features.n = 3000)
+KO <- SCTransform(KO, method = "glmGamPoi", vars.to.regress = c('nCount_RNA', 'percent.mt'), variable.features.n = 3000)
+KO_CDKi <- SCTransform(KO_CDKi, method = "glmGamPoi", vars.to.regress = c('nCount_RNA', 'percent.mt'), variable.features.n = 3000)
+
+# segregated into markers of G2/M phase and S phase
+s.genes <- cc.genes$s.genes
+g2m.genes <- cc.genes$g2m.genes
+library(stringr)
+s.genes <- str_to_title(s.genes)
+g2m.genes <- str_to_title(g2m.genes)
+
+# Do cell cycle scoring on the scaled data
+CT <- CellCycleScoring(CT, s.features = s.genes, g2m.features = g2m.genes, assay = 'SCT', set.ident = TRUE)
+CT_CDKi <- CellCycleScoring(CT_CDKi, s.features = s.genes, g2m.features = g2m.genes, assay = 'SCT', set.ident = TRUE)
+KO <- CellCycleScoring(KO, s.features = s.genes, g2m.features = g2m.genes, assay = 'SCT', set.ident = TRUE)
+KO_CDKi <- CellCycleScoring(KO_CDKi, s.features = s.genes, g2m.features = g2m.genes, assay = 'SCT', set.ident = TRUE)
+
+```
+## Run PCA to study cell cycle segregation
+```{r chunk6, message=FALSE,results='hide',warning=FALSE,paged.print=FALSE, echo=FALSE,fig.align = "center"}
+pc1 <- RunPCA(CT, features = c(s.genes, g2m.genes),approx=FALSE) #https://github.com/satijalab/seurat/issues/1963
+pc2 <- RunPCA(CT_CDKi, features = c(s.genes, g2m.genes),approx=FALSE)
+pc3 <- RunPCA(KO, features = c(s.genes, g2m.genes),approx=FALSE)
+pc4 <- RunPCA(KO_CDKi, features = c(s.genes, g2m.genes),approx=FALSE) 
+
+d <- DimPlot(pc1)
+d2 <- DimPlot(pc2)
+d3 <- DimPlot(pc3)
+d4 <- DimPlot(pc4)
+wrap_plots(d+d2+d3+d4)
+rm (pc1,pc2,pc3,pc4,d,d2,d3,d4)
+```
+
+## regress on cc.difference
+```{r chunk7, warning=FALSE, message = FALSE, results='hide'}
+# change default assay to RNA (regression has to be performed on non scaled data)
+DefaultAssay(CT) <- "RNA"
+DefaultAssay(KO) <- "RNA"
+DefaultAssay(CT_CDKi) <- "RNA"
+DefaultAssay(KO_CDKi) <- "RNA"
+
+CT$CC.Difference <- CT$S.Score-CT$G2M.Score
+CT_CDKi$CC.Difference <- CT_CDKi$S.Score-CT_CDKi$G2M.Score
+KO$CC.Difference <- KO$S.Score-KO$G2M.Score
+KO_CDKi$CC.Difference <- KO_CDKi$S.Score-KO_CDKi$G2M.Score
+
+# SCT transform and regress cell cycle genes (SCTransform will be re-written)
+CT <- SCTransform(CT, method = "glmGamPoi", vars.to.regress = c('nCount_RNA', 'CC.Difference','percent.mt'), variable.features.n = 3000)
+CT_CDKi <- SCTransform(CT_CDKi, method = "glmGamPoi", vars.to.regress = c('nCount_RNA', 'CC.Difference','percent.mt'), variable.features.n = 3000)
+KO <- SCTransform(KO, method = "glmGamPoi", vars.to.regress = c('nCount_RNA', 'CC.Difference','percent.mt'), variable.features.n = 3000)
+KO_CDKi <- SCTransform(KO_CDKi, method = "glmGamPoi", vars.to.regress = c('nCount_RNA', 'CC.Difference','percent.mt'), variable.features.n = 3000)
+```
+```{r, message=FALSE,results='hide',warning=FALSE,paged.print=FALSE, echo=FALSE,fig.align = "center"}
+pc1 <- RunPCA(CT, features = c(s.genes, g2m.genes),approx=FALSE) #https://github.com/satijalab/seurat/issues/1963
+pc2 <- RunPCA(CT_CDKi, features = c(s.genes, g2m.genes),approx=FALSE)
+pc3 <- RunPCA(KO, features = c(s.genes, g2m.genes),approx=FALSE)
+pc4 <- RunPCA(KO_CDKi, features = c(s.genes, g2m.genes),approx=FALSE) 
+
+d <- DimPlot(pc1)
+d2 <- DimPlot(pc2)
+d3 <- DimPlot(pc3)
+d4 <- DimPlot(pc4)
+wrap_plots(d+d2+d3+d4)
+rm (pc1,pc2,pc3,pc4,d,d2,d3,d4)
+```
+
+
+## we will do data integration here (all samples are from post natal day 5 (P5) and we expect the same cell types here but with changes in gene expression)
+**Find integration anchors**
+```{r, chunk8, warning=FALSE, message=FALSE, results='hide'}
+ifnb.list <- c(CT,CT_CDKi,KO,KO_CDKi)
+features <- SelectIntegrationFeatures(object.list = ifnb.list, nfeatures = 3000)
+ifnb.list <- PrepSCTIntegration(object.list = ifnb.list, anchor.features = features)
+anchors <- FindIntegrationAnchors(object.list = ifnb.list, normalization.method = "SCT", anchor.features = features)
+integrated <- IntegrateData(anchorset = anchors, normalization.method = "SCT")
+saveRDS(integrated,"/Users/udp3f/Documents/Gael_scRNASeq/integrated.V4.rds")
+```
+**Run PCA**
+```{r chunk9, warning=FALSE, message=FALSE,fig.align = "center"}
+integrated <- readRDS(file="/Users/udp3f/Documents/Gael_scRNASeq/integrated.V4.rds")
+#PCA uses the scaled data slot by default
+integrated <- RunPCA(integrated, npcs = 20, verbose = FALSE)
+#### Check the number of PC's needed and run UMAP, find neighbors and clusters
+ElbowPlot(integrated) 
+
+```
+
+**Find clusters**
+```{r chunk10, warning = FALSE, message = FALSE,results='hide',fig.width=10, fig.height=10,fig.align = "center"}
+# Umap uses "data" slot by default so we will change this to scale.data slot. 
+# https://github.com/satijalab/seurat/issues/2906
+# https://github.com/satijalab/seurat/issues/5291
+integrated <- RunUMAP(integrated, reduction = "pca", dims = 1:16, slot="scale.data")
+integrated <- FindNeighbors(integrated, reduction = "pca", dims = 1:16)
+integrated <- FindClusters(integrated, resolution = 0.7) 
+
+integrated$orig.ident <-  factor(integrated$orig.ident, levels = c("CT","CT_CDKi","KO","KO_CDKi")) #relevel
+#pdf(file="/Users/udp3f/Documents/Gael_scRNASeq/Figures/new/umap.pdf", width = 12, height = 4)
+DimPlot(integrated, reduction = "umap", label=TRUE, label.size = 4, split.by = "orig.ident", repel=TRUE) 
+#dev.off()
+#pdf(file="/Users/udp3f/Documents/Gael_scRNASeq/Figures/new/umap_all.pdf", width = 4, height = 4)
+DimPlot(integrated, reduction = "umap", label=TRUE, label.size = 2, repel=TRUE) + theme(legend.text = element_text(size=8),legend.title = element_text(size=8))
+#dev.off()
+```
+
+**Total number of cells in each cluster and condition**
+\normalsize
+```{r, chunk11, echo=FALSE, warning=FALSE, message=FALSE}
+library(data.table)
+library(magrittr)
+## extract meta data
+md <- integrated@meta.data %>% as.data.table
+md[, .N, by = c("orig.ident")]
+```
+
+**Phate on the data (on the integrated assay)**
+\normalsize
+```{r, chunk12, results='hide', message = FALSE, fig.width=10, fig.height=6,fig.align = "center", warning=FALSE, eval=FALSE}
+library(phateR)
+library(ggplot2)
+library(readr)
+library(viridis)
+phate_output <- phateR::phate(t(GetAssayData(integrated, assay= "integrated",slot = "scale.data")), seed=2, knn=10, t=32)
+#integrate phate
+integrated[["phate"]] <- CreateDimReducObject(embeddings = phate_output$embedding, key = "PHATE_", assay = DefaultAssay(integrated)) 
+# split by original identity
+DimPlot(integrated, reduction = "phate", label=TRUE, repel=TRUE, shuffle=TRUE, split.by="orig.ident", label.size = 5)
+DimPlot(integrated, reduction = "phate", label=TRUE, repel=TRUE, shuffle=TRUE, label.size = 5)
+DimPlot(integrated, reduction = "phate", label=TRUE, repel=TRUE, shuffle=TRUE, label.size = 5, group.by = "orig.ident")
+```
+
+# Marker analysis
+# "Sparc","Esm1","Dll4" for tip cells (Nick's paper)
+# "Mki67", "Cdk1", "Cdk2", "Cdk4", "Ccne1", "Ccne2" -  Proliferation markers
+# Apoe - cap-venous
+# Car4 - cap-venous (cell 2020, murine EC)
+# Glul - cap-arterial
+# Aplnr from embryo data and Nick's venous/cell cycle identity
+#Tip, venous ("Ephb4","Nrp2","Nr2f2","Aplnr","Ptgs1"),capillary ("Slc7a5","Mfsd2a","Rgcc","Abcb1a","Prkcb"), arterial ("Sox17","Efnb2","Gja5","Gja4","Bmx"), lymphatic, proliferative (apoe, car4 removed), "Nrl","Hcn1","Neurod1 (neuronal)
+
+```{r, chunk13, fig.width=10, fig.height=6}
+DefaultAssay(integrated) <- "RNA"
+integrated <- NormalizeData(integrated, verbose = FALSE)
+genes <- c("Sparc","Esm1","Dll4","Ephb4","Nrp2","Nr2f2","Aplnr","Ptgs1","Slc7a5","Mfsd2a","Rgcc","Abcb1a","Prkcb","Sox17","Efnb2","Gja5","Gja4","Bmx","Lyve1","Mki67", "Cdk1", "Cdk2", "Cdk4", "Ccne1", "Ccne2", "Glul","Car4","Cdh5","Pecam1","Nrl","Hcn1","Neurod1")
+DotPlot(integrated, features = genes, dot.scale = 10, col.min=0) + RotatedAxis() + scale_color_viridis(option="viridis")
+
+DotPlot(integrated, features = c("Cdh5","Pecam1"), dot.scale = 10, col.min=0.02) + RotatedAxis() #we will remove 9-14 clusters as theer are no EC markers expressed
+VlnPlot(integrated, features = c("Cdh5","Pecam1")) + RotatedAxis()
+```
+#https://bis.zju.edu.cn/MCA/
+#https://singlecell.broadinstitute.org/single_cell/app/genes?type=study&page=1&terms=Nrl&genes=Nrl&genePage=1&facets=species%3ANCBITaxon_10090
+#http://xteam.xbio.top/CellMarker/search.jsp?cellMarkerSpeciesType=Mouse&cellMarker=Nrl
+#https://betsholtzlab.org/VascularSingleCells/database.html?
+#https://www.proteinatlas.org/ENSG00000162992-NEUROD1/tissue/retina
+#Ptgs1 (venous), apoe (cap-venous), Prkcb (capillary)
+
+# Mki67 for proliferation; stat3
+# cell cycle inhibitors p27
+# disease; increased proliferation; decreased migration; abnormal TGFβ signaling
+# endoglin, smad1-5-8- should be absent in KO or n ophosp. 
+# Acvrl1 KO - venous identity is preserved; arterial identity is reduced; EC proliferation is up
+
+# cluster 8,9,10,11,12,13 neuronal/astrocytes
+# cluster 14 is a mix of EC and microglia
+# cluster 15 is a mix but more of astro/oligo
+
+# cluster 9 - neurod1/Hcn1 (neurons) http://mousebrain.org/adolescent/genesearch.html
+#cluster 10 - neural (neurod1)
+#cluster 11 Nol4/Neurod4 (neurons)
+# cluster 13 - retinal progenitors - Ckb, Tubb  https://www.sciencedirect.com/science/article/pii/S0006291X21000784?via%3Dihub; in neuronal and epithelial cells https://www.proteinatlas.org/ENSG00000166165-CKB/single+cell+type; http://mousebrain.org/adolescent/genesearch.html
+#cluster 15 Hcn1/Zfp385b (neurons) - http://mousebrain.org/adolescent/genesearch.html
+# cluster 16 - c1qb (microglia/mesoderm) http://mousebrain.org/genes/C1qb.html &  spi1, runx1 markers 
+# cluster 17 - Nrg3 (neurons) 
+# cluster 12 - neruons - lsamp
+# 0 - cap - hmcn1, Fli1, Ptprg https://betsholtzlab.org/VascularSingleCells/database.html?
+
+#Find markers
+```{r, chunk14, eval=FALSE}
+m <- FindAllMarkers(integrated, min.pct = 0.10, logfc.threshold = 0.10, only.pos=TRUE)
+
+```
+**Subset data to remove neural like cells 8-13; we still hold on to 14-15 to resolve later as they seem to be a mix of EC and neuro**
+```{r, chunk15, warning = FALSE, message = FALSE,results='hide' }
+library(phateR)
+library(ggplot2)
+library(readr)
+library(viridis)
+
+DefaultAssay(integrated) <- "integrated"
+# Cell names of the clusters to be removed
+cell_list <- WhichCells(integrated, idents = c("8","9","10","11","12","13"))
+## filter cells 
+integrated_subset <- integrated[,!colnames(integrated) %in% cell_list]
+integrated_subset$orig.ident <- droplevels(integrated_subset$orig.ident)
+
+# Find clusters and run UMAP on the new object (make sure the DefaultAssay is integrated before doing the below steps)
+ElbowPlot(integrated_subset)
+integrated_subset <- RunPCA(integrated_subset, npcs = 20, verbose = FALSE)
+integrated_subset <- RunUMAP(integrated_subset, reduction = "pca", dims = 1:16)
+integrated_subset <- FindNeighbors(integrated_subset, reduction = "pca", dims = 1:16)
+integrated_subset <- FindClusters(integrated_subset, resolution = 0.6)
+
+DimPlot(integrated_subset, label = TRUE,label.size = 4, repel=TRUE) + theme(legend.text = element_text(size=8),legend.title = element_text(size=8))
+DimPlot(integrated_subset, label = TRUE,label.size = 4, repel=TRUE, split.by="orig.ident") + theme(legend.text = element_text(size=8),legend.title = element_text(size=8))
+saveRDS(integrated_subset,file="/Users/udp3f/Documents/Gael_scRNASeq/integrated.subset.V4.rds")
+```
+
+# 7 arterial due to high expression of Gja4 and Slc6a6 from marker analysis https://betsholtzlab.org/VascularSingleCells/database.html?gene=Slc6a6
+# Define clusters
+```{r, chunk16}
+#integrated_subset <- readRDS(file="/Users/udp3f/Documents/Gael_scRNASeq/integrated.subset.V3.rds")
+genes <- c("Sparc","Esm1","Dll4","Ephb4","Nrp2","Nr2f2","Aplnr","Ptgs1","Slc7a5","Mfsd2a","Rgcc","Abcb1a","Prkcb","Sox17","Efnb2","Gja5","Gja4","Bmx","Mki67", "Cdk1", "Cdk2", "Cdk4", "Ccne1", "Ccne2","Top2a","Hist1h2ap")
+DefaultAssay(integrated_subset) <- "RNA"
+DotPlot(integrated_subset, features = genes, dot.scale = 10, col.min=0) + RotatedAxis() + scale_color_viridis(option="viridis")
+VlnPlot(integrated_subset, features = c("Cdh5","Pecam1")) + RotatedAxis()
+```
+# cluster 8 has cell cycle genes as top genes from marker analysis - marking as proliferative
+```{r, chunk17}
+integrated_subset <- readRDS(file="/Users/udp3f/Documents/Gael_scRNASeq/integrated.subset.V4.rds")
+integrated_subset.new <- RenameIdents(integrated_subset, `0` = "Capillary", `1` = "Capillary", `2` = "Capillary", `3` = "Venous", `4` = "Proliferative", `5` = "Capillary", `6` = "Tip", `7` = "Arterial", `8` = "Proliferative", `9` = "Venous", `10` = "10", `11` = "11")
+DimPlot(integrated_subset.new, label = TRUE,label.size = 4, repel=TRUE) + theme(legend.text = element_text(size=8),legend.title = element_text(size=8))
+DimPlot(integrated_subset.new, label = TRUE,label.size = 4, repel=TRUE, split.by="orig.ident") + theme(legend.text = element_text(size=8),legend.title = element_text(size=8))
+genes <- c("Sparc","Esm1","Dll4","Ephb4","Nrp2","Nr2f2","Aplnr","Ptgs1","Slc7a5","Mfsd2a","Rgcc","Abcb1a","Prkcb","Sox17","Efnb2","Gja5","Gja4","Bmx","Mki67", "Cdk1", "Cdk2", "Cdk4", "Ccne1", "Ccne2","Top2a","Hist1h2ap")
+DefaultAssay(integrated_subset.new) <- "RNA"
+DotPlot(integrated_subset.new, features = genes, dot.scale = 10, col.min=0) + RotatedAxis() + scale_color_viridis(option="viridis")
+
+```
+
+**Run phate with new cluster definitions after subsetting to exclude clusters 10 & 11** 
+## VERSION 4 varies from VERSION 3, here onwards where we remove clusters 10 & 11 as these clusters could not be resolved - and use the resultant object to do all downstream analysis and final figures for the  manuscript
+
+```{r, chunk18, fig.width=10, fig.height=6}
+library(phateR)
+library(ggplot2)
+library(readr)
+library(viridis)
+library(ggrepel)
+
+obj_CR <- subset(x=integrated_subset.new, idents = c("Capillary","Venous","Proliferative","Tip","Arterial"))
+phate_output <- phateR::phate(t(GetAssayData(obj_CR, assay="integrated", slot = "scale.data")), seed=4, knn=12, t=36) 
+#Place phate into Seurat object (we will use this for dimensionality reduction in a dimplot)
+obj_CR[["phate"]] <- CreateDimReducObject(embeddings = phate_output$embedding, key = "PHATE_", assay = DefaultAssay(obj_CR)) 
+
+DimPlot(obj_CR, reduction = "phate", label=TRUE, repel=TRUE, shuffle=TRUE, label.size = 5, group.by = "orig.ident")
+DimPlot(obj_CR, reduction = "umap", pt.size=0.08, label=TRUE, repel=TRUE, shuffle=TRUE, seed=10,label.size = 5)
+
+# split by original identity
+DimPlot(obj_CR, reduction = "phate", label=TRUE, repel=TRUE, shuffle=TRUE, split.by="orig.ident", label.size = 5)
+DimPlot(obj_CR, reduction = "phate", label=TRUE, repel=TRUE, shuffle=TRUE, label.size = 5, pt.size =0.2) 
+
+genes <- c("Sparc","Esm1","Dll4","Abcb1a","Rgcc","Mfsd2a","Slc7a5","Prkcb","Aplnr","Nrp2","Ephb4","Nr2f2","Ptgs1","Sox17","Efnb2","Gja5","Gja4","Bmx","Mki67", "Cdk1", "Cdk2", "Cdk4", "Ccne1", "Ccne2","Top2a","Hist1h2ap")
+DotPlot(obj_CR, features = genes, dot.scale = 6, col.min=0) + RotatedAxis() + scale_color_viridis(option="viridis")
+
+#+ coord_flip()
+
+### Save phate and dmarker plots for all cells
+tiff(file="/Users/udp3f/Documents/Gael_scRNASeq/Figures/new/Figures_manuscript/phate.tiff", width = 6, height = 3, units = 'in', res = 300)
+DimPlot(obj_CR, reduction = "phate", label=FALSE, shuffle=TRUE, label.size = 5, pt.size =0.2)
+dev.off()
+
+#order Sox17, Efnb2, Gja4, Gja5, Bmx, Ephb4, Nrp2, Nr2f2, Aplnr, Ptgs1, Slc7a5, Mfsd2a, Rgcc, Abcb1a, Prkcb, Mki67, Cdk1, Cdk2, Cdk4, Ccne1, Ccne2, Top2a, Hist1h2ap, Sparc, Esm1, Dll4.
+#bottom to top: artery, vein, capillary, proliferative, tip
+Idents(obj_CR) <-  factor(Idents(obj_CR), levels = c("Arterial","Venous","Capillary","Proliferative","Tip"))
+
+tiff(file="/Users/udp3f/Documents/Gael_scRNASeq/Figures/new/Figures_manuscript/marker.tiff", width = 8, height = 3, units = 'in', res = 300)
+genes <- c("Sox17","Efnb2","Gja4","Gja5","Bmx", "Ephb4","Nrp2","Nr2f2","Aplnr","Ptgs1","Slc7a5","Mfsd2a","Rgcc","Abcb1a","Prkcb","Mki67", "Cdk1", "Cdk2", "Cdk4", "Ccne1", "Ccne2","Top2a","Hist1h2ap","Sparc","Esm1","Dll4")
+DotPlot(obj_CR, features = genes, dot.scale = 6, col.min=0) + RotatedAxis() + scale_color_viridis(option="viridis")
+dev.off()
+
+tiff(file="/Users/udp3f/Documents/Gael_scRNASeq/Figures/new/Figures_manuscript/markerV2.tiff", width = 10, height = 4, units = 'in', res = 300)
+genes <- c("Sox17","Efnb2","Gja4","Gja5","Bmx", "Ephb4","Nrp2","Nr2f2","Aplnr","Ptgs1","Slc7a5","Mfsd2a","Rgcc","Abcb1a","Prkcb","Mki67", "Cdk1", "Cdk2", "Cdk4", "Ccne1", "Ccne2","Top2a","Hist1h2ap","Sparc","Esm1","Dll4")
+DotPlot(obj_CR, features = genes, dot.scale = 8) + scale_color_viridis(option="viridis") + theme(axis.text=element_text(size=14),axis.title=element_text(size=14),legend.text = element_text(size=14),legend.title = element_text(size=14)) + RotatedAxis()
+dev.off()
+```
+# Module scores will be calculated for cells that are equal in number across all conditions
+```{r, chunk19}
+#counts per condition and cluster
+library(data.table)
+library(magrittr)
+obj_CR$group <- Idents(obj_CR)
+md <- obj_CR@meta.data %>% as.data.table
+md[, .N, by = c("orig.ident")]
+## Cells per cluster, per condition
+md[, .N, by = c("orig.ident", "group")] %>% dcast(., orig.ident ~ group, value.var = "N")
+
+# We will downsample cells in all conditions to the lowest number of cells (here CT_CDKi=1536) for plotting
+CT_cells <- which(obj_CR$orig.ident == 'CT')
+CT_CDKi_cells <- which(obj_CR$orig.ident == 'CT_CDKi')
+KO_cells <- which(obj_CR$orig.ident == 'KO')
+KO_CDKi_cells <- which(obj_CR$orig.ident == 'KO_CDKi')
+
+downsampled_CT_cells <- sample(CT_cells, 1535)
+downsampled_KO_CDKi_cells <- sample(KO_CDKi_cells, 1535)
+downsampled_KO_cells <- sample(KO_cells, 1535)
+
+# vector of cells to use for dimplots and featureplots
+cells <- c(downsampled_CT_cells, CT_CDKi_cells, downsampled_KO_cells,downsampled_KO_CDKi_cells)
+d <- DimPlot(obj_CR, reduction = "phate", cells = cells)
+# Phate plot with same number of cells across conditions
+d
+
+tiff(file="/Users/udp3f/Documents/Gael_scRNASeq/Figures/new/Figures_manuscript/phate.equal_cells.tiff", width = 6, height = 3, units = 'in', res = 300)
+d
+dev.off()
+
+layer_scales(d)$x$get_limits()
+layer_scales(d)$y$get_limits()
+
+```
+### Venous, arterial identity, early late genes- module scores and featureplots
+
+```{r, chunk20}
+### Venous ident
+#https://journals.plos.org/plosone/article/file?id=10.1371/journal.pone.0098646&type=printable
+tiff(file="/Users/udp3f/Documents/Gael_scRNASeq/Figures/new/Figures_manuscript/venous_ident.tiff",width = 12, height = 8, units = 'in', res = 300)
+ven_iden <- list(c("Ephb4","Nr2f2","Nrp2","Emcn","Slc38a5","Apoe","Bgn","Aplnr","Flt4")) #new to use
+
+# Use & operator if you want the color theme for all plots (https://github.com/satijalab/seurat/issues/2400)
+obj_CR <- AddModuleScore(object = obj_CR, features = ven_iden, name = "ven_iden")
+p <- FeaturePlot(object = obj_CR, features = "ven_iden1", reduction ="phate", split.by = "orig.ident", label = F, order=TRUE,pt.size =1, keep.scale = 'feature', min.cutoff = 0.02, cells=cells) & theme(legend.position = c(0.8, 0.2),legend.text = element_text(size=14),axis.text=element_text(size=14), axis.title=element_text(size=14))
+p1 <- p[[1]] + xlim(c(-0.034,0.058)) + ylim(c(-0.012,0.022))
+p2 <- p[[2]] + xlim(c(-0.034,0.058)) + ylim(c(-0.012,0.022))
+p3 <- p[[3]] + xlim(c(-0.034,0.058)) + ylim(c(-0.012,0.022))
+p4 <- p[[4]] + xlim(c(-0.034,0.058)) + ylim(c(-0.012,0.022))
+wrap_plots(d,p1,p2,p3,p4,guides='collect') + plot_annotation(title = "Venous markers") & theme (plot.title = element_text(size = 25))
+dev.off()
+
+#arterial ident
+tiff(file="/Users/udp3f/Documents/Gael_scRNASeq/Figures/new/Figures_manuscript/arterial_iden.tiff",width = 12, height = 8, units = 'in', res = 300)
+art_iden <- list(c("Efnb2","Gja4","Hey1","Bmx","Jag1","Unc5b","Cxcl12","Tgfb2")) #Gja4,Hey1 good
+obj_CR <- AddModuleScore(object = obj_CR, features = art_iden, name = "art_iden")
+p <- FeaturePlot(object = obj_CR, features = "art_iden1", reduction ="phate", split.by = "orig.ident", label = F, order=TRUE,pt.size =1, keep.scale = 'feature', min.cutoff = 0.01, cells=cells) & theme(legend.position = c(0.8, 0.2),legend.text = element_text(size=14),axis.text=element_text(size=14), axis.title=element_text(size=14))
+p1 <- p[[1]] + xlim(c(-0.034,0.058)) + ylim(c(-0.012,0.022))
+p2 <- p[[2]] + xlim(c(-0.034,0.058)) + ylim(c(-0.012,0.022))
+p3 <- p[[3]] + xlim(c(-0.034,0.058)) + ylim(c(-0.012,0.022))
+p4 <- p[[4]] + xlim(c(-0.034,0.058)) + ylim(c(-0.012,0.022))
+wrap_plots(d,p1,p2,p3,p4,guides='collect') + plot_annotation(title = "Arterial markers") & theme (plot.title = element_text(size = 25))
+dev.off()
+
+#Arterial late G1
+tiff(file="/Users/udp3f/Documents/Gael_scRNASeq/Figures/new/Figures_manuscript/arterial_lateG1.tiff",width = 12, height = 8, units = 'in', res = 300)
+arterial_lG1 <- list(c("Unc5b","Lama3","Cobll1","Vegfc","Tm4sf1","Tsc22d1","Fyn","Smpdl3a","Plvap","B2m","Thbd","Klf2","Icam2","Mfap2","Sox17","Ifitm3","Adamts9","Klf4","Picalm","Gnpda2","Sh3bgrl","Prss23","Itm2a","Cavin1"))
+obj_CR <- AddModuleScore(object = obj_CR, features = arterial_lG1, name = "arterial_lG1")
+p <- FeaturePlot(object = obj_CR, features = "arterial_lG11", reduction ="phate", split.by = "orig.ident", label = F, order=TRUE,pt.size =1.0, keep.scale = 'feature', min.cutoff = 0.03, cells=cells) & theme(legend.position = c(0.8, 0.8),legend.text = element_text(size=14),axis.text=element_text(size=14), axis.title=element_text(size=14))
+p1 <- p[[1]] + xlim(c(-0.034,0.058)) + ylim(c(-0.012,0.022))
+p2 <- p[[2]] + xlim(c(-0.034,0.058)) + ylim(c(-0.012,0.022))
+p3 <- p[[3]] + xlim(c(-0.034,0.058)) + ylim(c(-0.012,0.022))
+p4 <- p[[4]] + xlim(c(-0.034,0.058)) + ylim(c(-0.012,0.022))
+wrap_plots(d,p1,p2,p3,p4,guides='collect') + plot_annotation(title = "arterial_lG1") & theme (plot.title = element_text(size = 25))
+dev.off()
+
+### Flt1 (VEGFR1) featureplot across all conditions 
+tiff(file="/Users/udp3f/Documents/Gael_scRNASeq/Figures/new/Figures_manuscript/Flt1.tiff",width = 12, height = 8, units = 'in', res = 300)
+p <- FeaturePlot(object = obj_CR, features = "Flt1", reduction ="phate", split.by = "orig.ident", label = F, order=FALSE,pt.size =0.2, keep.scale = 'feature', cells=cells) & theme(legend.position = c(0.8, 0.8),legend.text = element_text(size=14),axis.text=element_text(size=14), axis.title=element_text(size=14))
+p1 <- p[[1]] + xlim(c(-0.034,0.058)) + ylim(c(-0.012,0.022))
+p2 <- p[[2]] + xlim(c(-0.034,0.058)) + ylim(c(-0.012,0.022))
+p3 <- p[[3]] + xlim(c(-0.034,0.058)) + ylim(c(-0.012,0.022))
+p4 <- p[[4]] + xlim(c(-0.034,0.058)) + ylim(c(-0.012,0.022))
+wrap_plots(d,p1,p2,p3,p4,guides='collect') + plot_annotation(title = "Flt1") & theme (plot.title = element_text(size = 25))
+dev.off()
+
+# DotPlot(obj_CR, assay="RNA", dot.scale = 10, features=c("Flt1","Acvrl1"), group.by = "orig.ident")
+
+### eG1 (Nick's)
+dat2 <- readLines("/Users/udp3f/Documents/Nicks_bulk_fucci/EarlyG1genes.csv")
+eG1 <- list(dat2)
+obj_CR <- AddModuleScore(object = obj_CR, features = eG1, name = "eG1.list")
+tiff(file="/Users/udp3f/Documents/Gael_scRNASeq/Figures/new/Figures_manuscript/eG1.tiff",width = 12, height = 8, units = 'in', res = 300)
+p <- FeaturePlot(object = obj_CR, features = "eG1.list1", reduction ="phate", split.by = "orig.ident", label = F, order=TRUE,pt.size =0.8, keep.scale = 'feature', min.cutoff = 0.03, cells=cells) & theme(legend.position = c(0.8, 0.8),legend.text = element_text(size=14),axis.text=element_text(size=14), axis.title=element_text(size=14))
+p1 <- p[[1]] + xlim(c(-0.034,0.058)) + ylim(c(-0.012,0.022))
+p2 <- p[[2]] + xlim(c(-0.034,0.058)) + ylim(c(-0.012,0.022))
+p3 <- p[[3]] + xlim(c(-0.034,0.058)) + ylim(c(-0.012,0.022))
+p4 <- p[[4]] + xlim(c(-0.034,0.058)) + ylim(c(-0.012,0.022))
+wrap_plots(d,p1,p2,p3,p4,guides='collect') + plot_annotation(title = "eG1") & theme (plot.title = element_text(size = 25))
+dev.off()
+
+#sg2m module scores (Nick's)
+dat <- readLines("/Users/udp3f/Documents/Nicks_bulk_fucci/SG2Mgenes.csv")
+sg2m <- list(dat)
+obj_CR <- AddModuleScore(object = obj_CR, features = sg2m, name = "sg2m.list")
+tiff(file="/Users/udp3f/Documents/Gael_scRNASeq/Figures/new/Figures_manuscript/sg2m.tiff",width = 12, height = 8, units = 'in', res = 300)
+p <- FeaturePlot(object = obj_CR, features = "sg2m.list1", reduction ="phate", split.by = "orig.ident", label = F, order=TRUE,pt.size =0.6, keep.scale = 'feature', cells=cells, min.cutoff = 0.01) & theme(legend.position = c(0.8, 0.8),legend.text = element_text(size=14),axis.text=element_text(size=14), axis.title=element_text(size=14))
+p1 <- p[[1]] + xlim(c(-0.034,0.058)) + ylim(c(-0.012,0.022))
+p2 <- p[[2]] + xlim(c(-0.034,0.058)) + ylim(c(-0.012,0.022))
+p3 <- p[[3]] + xlim(c(-0.034,0.058)) + ylim(c(-0.012,0.022))
+p4 <- p[[4]] + xlim(c(-0.034,0.058)) + ylim(c(-0.012,0.022))
+wrap_plots(d,p1,p2,p3,p4,guides='collect') + plot_annotation(title = "sg2m") & theme (plot.title = element_text(size = 25))
+dev.off()
+
+```
+### Dotplots with all cells
+```{r,chunk21}
+
+### venous markers in VENous cluster - save high resolution images
+venous <- c("Ephb4","Nr2f2","Nrp2","Emcn","Slc38a5","Apoe","Bgn","Aplnr","Flt4") #"Nrp2","Emcn", Flt4 exp is not lost in KO
+DotPlot(obj_CR, assay="RNA", dot.scale = 10, features=venous, group.by = "orig.ident", idents="Venous") + RotatedAxis() + xlab('Venous cluster') + ylab('Experimental conditions') 
+
+# arterial markers in arterial cluster
+arterial <- c("Efnb2","Gja4","Hey1","Bmx","Jag1","Unc5b","Cxcl12","Tgfb2")
+DotPlot(obj_CR, assay="RNA", dot.scale = 10, features=arterial, group.by = "orig.ident", idents="Arterial") + RotatedAxis() + xlab('Arterial cluster') + ylab('Experimental conditions')
+
+### TGFb_signaling_in_arterial - high resolution
+TGFb_signaling <- c("Tgfbr1","Tgfbr2","Smad6","Tgfb1","Tgfb2")
+DotPlot(obj_CR, assay="RNA", dot.scale = 10, features=TGFb_signaling, group.by = "orig.ident", idents="Arterial") + RotatedAxis() + xlab('Arterial cluster') + ylab('Experimental conditions') # Tgfbr2, Smad6 exp in arterial cluster is lost in KO; rescued in KO_CDKi
+
+
+```
+
+#### Dotplots: considering equal number of cells across all conditions 
+
+```{r}
+# equal cell count across all conditions
+data <- subset(x=obj_CR, cells=cells) 
+
+tiff(file="/Users/udp3f/Documents/Gael_scRNASeq/Figures/new/Figures_manuscript/venous_markers_in_venous.tiff",width = 12, height = 8, units = 'in', res = 300)
+venous <- c("Ephb4","Nr2f2","Nrp2","Emcn","Slc38a5","Apoe","Bgn","Aplnr","Flt4")
+DotPlot(data, assay="RNA", dot.scale = 10, features=venous, group.by = "orig.ident", idents="Venous") + RotatedAxis() 
+dev.off()
+
+tiff(file="/Users/udp3f/Documents/Gael_scRNASeq/Figures/new/Figures_manuscript/arterial_markers_in_arterial.tiff",width = 12, height = 8, units = 'in', res = 300)
+arterial <- c("Efnb2","Gja4","Hey1","Bmx","Jag1","Unc5b","Cxcl12","Tgfb2")
+DotPlot(data, assay="RNA", dot.scale = 10, features=arterial, group.by = "orig.ident", idents="Arterial") + RotatedAxis()
+dev.off()
+
+tiff(file="/Users/udp3f/Documents/Gael_scRNASeq/Figures/new/Figures_manuscript/tgfb_signaling_in_arterial.tiff",width = 12, height = 8, units = 'in', res = 300)
+TGFb_signaling <- c("Tgfbr1","Tgfbr2","Smad6","Tgfb1","Tgfb2")
+DotPlot(data, assay="RNA", dot.scale = 10, features=TGFb_signaling, group.by = "orig.ident", idents="Arterial") + RotatedAxis()  # Tgfbr2, Smad6 in arterial
+dev.off()
+
+tiff(file="/Users/udp3f/Documents/Gael_scRNASeq/Figures/new/Figures_manuscript/marker_equal_cells.tiff", width = 8, height = 3, units = 'in', res = 300)
+genes <- c("Sox17","Efnb2","Gja4","Gja5","Bmx", "Ephb4","Nrp2","Nr2f2","Ptgs1","Slc7a5","Mfsd2a","Rgcc","Prkcb","Mki67", "Cdk1", "Cdk2", "Cdk4", "Ccne1", "Ccne2","Top2a","Hist1h2ap","Sparc","Esm1","Dll4")
+DotPlot(data, features = genes, dot.scale = 6) + RotatedAxis() + scale_color_viridis(option="viridis")
+dev.off()
+```
+
+# Animate the gene expression (module scores for features) across all conditions for cells=cells using ggplot and gganimate
+```{r}
+#https://mojaveazure.github.io/ggseurat/articles/ggseurat.html
+#https://gganimate.com/articles/gganimate.html
+DefaultAssay(obj_CR) <- "RNA"
+art_iden <- list(c("Efnb2","Gja4","Hey1","Bmx","Jag1","Unc5b","Cxcl12","Tgfb2")) #Gja4,Hey1 good
+obj_CR <- AddModuleScore(object = obj_CR, features = art_iden, name = "art_iden")
+
+library(gganimate)
+p <- ggplot(data = obj_CR[cells,]) + cowplot::theme_cowplot() # initialize plot
+p + geom_point(aes(x = PHATE_1, y = PHATE_2), group = seq_along(obj_CR[cells,]$orig.ident)) 
+# color by arterial identity module scores art_ident1
+plot <- p + geom_point(aes(x = PHATE_1, y = PHATE_2, color = !!obj_CR[cells,]$art_iden1)) + scale_color_gradientn(colors = c("lightgrey", "blue"))
+
+# animate expression across different conditions with transition states set to the orig.ident
+myplot <- plot + transition_states(obj_CR[cells,]$orig.ident, transition_length = 1, state_length = 1)  +  enter_fade() + exit_shrink() +  ease_aes('sine-in-out') + ggtitle('Arterial gene expression in {closest_state}')
+
+# save
+library(gifski)
+animate(myplot, duration = 5, renderer = gifski_renderer())
+anim_save("saveplot.gif")
+
+library(av)
+animate(myplot, renderer = av_renderer('animation.mp4'), audio = NULL)
+
+# for a single gene it didnot work out yet
+var <- sym("Acvrl1")
+plot <- p + geom_point(aes(x = PHATE_1, y = PHATE_2, color = !!var, na.rm = TRUE)) + scale_color_gradientn(colors = c("lightgrey", "blue"))
+
+```
+
+
+
+
+
+# Miscellaneous - Module scores for arterial identity, late G1, BMP/vegf/migration signaling cell cycle; related to manuscript claims
+```{r, eval=FALSE}
+
+DefaultAssay(integrated_subset.new) <- "RNA" 
+dat2 <- readLines("/Users/udp3f/Documents/Nicks_bulk_fucci/EarlyG1genes.csv")
+eG1 <- list(dat2)
+integrated_subset.new <- AddModuleScore(object = integrated_subset.new, features = eG1, name = "eG1.list")
+bmp_signaling <- list(c("Smad5", "Acvrl1", "Eng")) #"Flt1" - vegfr2 pathway
+integrated_subset.new <- AddModuleScore(object = integrated_subset.new, features = bmp_signaling, name = "bmp")
+
+dat3 <- readLines("/Users/udp3f/Documents/Nicks_bulk_fucci/LateG1genes.csv")
+lG1 <- list(dat3)
+integrated_subset.new <- AddModuleScore(object = integrated_subset.new, features = lG1, name = "lateG1")
+
+### Arterial identity (lost in disease but rescued with treatment)
+arterial <- list(c("Gja4","Efnb2", "Hey1", "Bmx", "Sat1", "Sema3g", "Jag1", "Dll4")) #"Gja5", "Hey2" (only in CT), NRP1 everywhere; Sox17 not rescueing that well; Fbln1 no rescue in arterial; not very specific to arterial cluster but rescued Sat1;
+
+d <- DimPlot(integrated_subset.new, reduction = "phate")
+
+integrated_subset.new <- AddModuleScore(object = integrated_subset.new, features = arterial, name = "arterial")
+p <- FeaturePlot(object = integrated_subset.new, features = "arterial1", reduction ="phate", split.by = "orig.ident", label = F, order=TRUE,pt.size =0.4, keep.scale = 'feature', min.cutoff = 0.05) & theme(legend.position = c(0.8, 0.8),legend.text = element_text(size=14),axis.text=element_text(size=14), axis.title=element_text(size=14))
+p1 <- p[[1]] + xlim(c(-0.02,0.05)) + ylim(c(-0.02,0.07))
+p2 <- p[[2]] + xlim(c(-0.02,0.05)) + ylim(c(-0.02,0.07))
+p3 <- p[[3]] + xlim(c(-0.02,0.05)) + ylim(c(-0.02,0.07))
+p4 <- p[[4]] + xlim(c(-0.02,0.05)) + ylim(c(-0.02,0.07))
+wrap_plots(d,p1,p2,p3,p4,guides='collect')
+
+## Venous identity (Apj/Aplnr); Emcn has exp in most clusters(cap-/arterial, cap-/venous, proliferative); Apoe is in the stalk cells; Ctla2a is everywhere; Tmsb10 is everywhere
+venousgenes <- list(c("Ephb4", "Nr2f2", "Nrp2", "Slc38a5", "Bgn", "Il6st", "Ptgs1", "Aplnr", "Flt4"))
+
+integrated_subset.new <- AddModuleScore(object = integrated_subset.new, features = venousgenes, name = "venous")
+p <- FeaturePlot(object = integrated_subset.new, features = "venous1", reduction ="phate", split.by = "orig.ident", label = F, order=TRUE,pt.size =0.4, keep.scale = 'feature', min.cutoff = 0.05) & theme(legend.position = c(0.8, 0.8),legend.text = element_text(size=14),axis.text=element_text(size=14), axis.title=element_text(size=14))
+p1 <- p[[1]] + xlim(c(-0.02,0.05)) + ylim(c(-0.02,0.07))
+p2 <- p[[2]] + xlim(c(-0.02,0.05)) + ylim(c(-0.02,0.07))
+p3 <- p[[3]] + xlim(c(-0.02,0.05)) + ylim(c(-0.02,0.07))
+p4 <- p[[4]] + xlim(c(-0.02,0.05)) + ylim(c(-0.02,0.07))
+wrap_plots(d,p1,p2,p3,p4,guides='collect')
+
+
+
+# checked every individual gene and decided the final list that goes for module scoring (removed Bmp2,Stc1,Dcxr,Rflna,Myo1e,Rgs5,Plcl1,Pdlim2,Herc6); The following features are not present in the object: Fyn, Smpdl3a, B2m, Thbd, Icam2, Picalm, Gnpda2, Sh3bgrl, Cavin1, not searching for symbol synonyms
+
+arterial_lG1 <- list(c("Unc5b","Lama3","Cobll1","Vegfc","Tm4sf1","Tsc22d1","Fyn","Smpdl3a","Plvap","B2m","Thbd","Klf2","Icam2","Mfap2","Sox17","Ifitm3","Adamts9","Klf4","Picalm","Gnpda2","Sh3bgrl","Prss23","Itm2a","Cavin1"))
+integrated_subset.new.filt <- AddModuleScore(object = integrated_subset.new, features = arterial_lG1, name = "arterial_lG1")
+p <- FeaturePlot(object = integrated_subset.new, features = "arterial_lG11", reduction ="phate", split.by = "orig.ident", label = F, order=TRUE,pt.size =0.4, keep.scale = 'feature', min.cutoff = 0.03) & theme(legend.position = c(0.8, 0.8),legend.text = element_text(size=14),axis.text=element_text(size=14), axis.title=element_text(size=14))
+p1 <- p[[1]] + xlim(c(-0.02,0.05)) + ylim(c(-0.02,0.07))
+p2 <- p[[2]] + xlim(c(-0.02,0.05)) + ylim(c(-0.02,0.07))
+p3 <- p[[3]] + xlim(c(-0.02,0.05)) + ylim(c(-0.02,0.07))
+p4 <- p[[4]] + xlim(c(-0.02,0.05)) + ylim(c(-0.02,0.07))
+wrap_plots(p1,p2,p3,p4,guides='collect')
+
+
+
+```
+## Miscellaneous - adding the new idents as a group with condition
+####
+```{r, eval=FALSE}
+
+obj <- integrated_subset.new.filt
+DefaultAssay(obj) <- "RNA"
+obj$condition <- paste(Idents(obj),obj@meta.data$orig.ident, sep = "_")
+new.idents <- obj$condition
+Idents(object = obj) <- new.idents 
+ggplot(obj@meta.data, aes(eG1.list1, condition)) + geom_boxplot()
+
+#subset
+control_disease_treatment <- subset(obj,subset=orig.ident %in% c("CT","KO","KO_CDKi"))
+control_disease_treatment@meta.data$orig.ident <- droplevels(control_disease_treatment@meta.data$orig.ident) # droplevels after subset
+disease_treatment <- subset(obj,subset=orig.ident %in% c("KO","KO_CDKi"))
+disease_treatment@meta.data$orig.ident <- droplevels(disease_treatment@meta.data$orig.ident)
+
+arterialgenes <- list(c("Efnb2", "Gja5", "Hey1", "Hey2", "Nrp1", "Sox17", "Bmx", "Gkn3", "Clu", "Crip1", "Fbln1", "Mecom", "Sat1", "Sema3g", "Jag1", "Dll4"))
+control_disease_treatment <- AddModuleScore(object = control_disease_treatment, features = arterialgenes, name = "arterialgenes")
+ggplot(control_disease_treatment@meta.data, aes(condition,arterialgenes1)) + geom_boxplot()
+
+#do for bmp signaling genes
+bmp_signaling <- list(c("Smad5", "Acvrl1", "Eng", "Flt1", "Angpt2"))
+control_disease_treatment <- AddModuleScore(object = control_disease_treatment, features = bmp_signaling, name = "bmp")
+ggplot(control_disease_treatment@meta.data, aes(orig.ident,bmp1)) + geom_boxplot()
+
+
+cell_cycle <- list(c("Cdk6","Ccnd2","E2f5"))
+control_disease_treatment <- AddModuleScore(object = control_disease_treatment, features = cell_cycle, name = "cellcycle")
+ggplot(control_disease_treatment@meta.data, aes(orig.ident,cellcycle1)) + geom_boxplot()
+
+genes <- c("Bmp2","Bmp4","Bmp6","Ccn2","Ccn1","Sox11","Ilk","Eng","Bmpr2","Smad2","Notch2","Msx1","Msx2","Notch1","Cdh5","Kdr","Tgfbr3","Gata6") #Vegfa","Kdr","Egfr","Ptn", "Bmpr1b","Apoe","Prkd1"
+control_disease_treatment <- AddModuleScore(object = control_disease_treatment, features = genes, name = "vegf")
+ggplot(control_disease_treatment@meta.data, aes(orig.ident,vegf1)) + geom_boxplot()
+
+arterial <- c("Efnb2", "Gja5", "Hey1", "Hey2", "Nrp1", "Sox17", "Bmx", "Gkn3", "Clu", "Crip1", "Fbln1", "Mecom", "Sat1", "Sema3g", "Jag1", "Dll4")
+d <- DotPlot(obj, assay="RNA", col.min =0.01, dot.scale = 10, idents=c("Arterial_KO","Arterial_KO_CDKi","Venous_KO","Venous_KO_CDKi"),features=arterial) + RotatedAxis() + theme(axis.text = element_text(size = 14))+scale_colour_gradient(low =c("lightgrey"), high =c("blue")) + guides(color = guide_colorbar(title = 'Average Expression (scaled)'))
+d$layers[[1]] <- NULL  # remove original geom_point layer where the color scale is hard-coded to use scaled average expression
+d <- d + 
+  geom_point(mapping = aes_string(size = 'pct.exp', color = 'avg.exp')) +
+  guides(color = guide_colorbar(title = 'Average Expression')) + 
+  theme(axis.text.x = element_text(angle=90))
+d
+
+## Looking at Acvrl1 expression
+obj <- integrated_subset.new.filt
+obj$cell_type <- Idents(obj) #cell_type
+obj$condition <- obj@meta.data$orig.ident #experiments
+DotPlot(object = obj, features = "Acvrl1", group.by = 'cell_type')
+DotPlot(object = obj, features = "Acvrl1", group.by = 'condition')
+
+library("dittoSeq") # this allows atleast 2 genes in var
+dittoDotPlot(obj, vars=c("Acvrl1", "Eng"), group.by = "cell_type", split.by = "condition", scale=FALSE)
+```
+
+
