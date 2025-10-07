@@ -7,4 +7,4 @@ This repository has the R code for the analysis of the single-cell data from the
 
 Citation
 =====================
-Genet G, Genet N, ``Paila U``, Cain SR, Cwiek A, Chavkin NW, Serbulea V, Figueras A, Cerdà P, McDonnell SP, Sankaranarayanan D, Huba M, Nelson EA, Riera-Mestre A, Hirschi KK. Induced Endothelial Cell Cycle Arrest Prevents Arteriovenous Malformations in Hereditary Hemorrhagic Telangiectasia. Circulation. 2024 Mar 19;149(12):944-962. doi: 10.1161/CIRCULATIONAHA.122.062952. Epub 2023 Dec 21. PMID: 38126211; PMCID: PMC10954087.
+Genet G*, Genet N*, ``Paila U``, Cain SR, Cwiek A, Chavkin NW, Serbulea V, Figueras A, Cerdà P, McDonnell SP, Sankaranarayanan D, Huba M, Nelson EA, Riera-Mestre A, Hirschi KK. Induced Endothelial Cell Cycle Arrest Prevents Arteriovenous Malformations in Hereditary Hemorrhagic Telangiectasia. Circulation. 2024 Mar 19;149(12):944-962. doi: 10.1161/CIRCULATIONAHA.122.062952. Epub 2023 Dec 21. PMID: 38126211; PMCID: PMC10954087.
