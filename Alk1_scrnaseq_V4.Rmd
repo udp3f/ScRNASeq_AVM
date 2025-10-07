@@ -1,5 +1,5 @@
 ---
-title: "HHT disease model (ALk1 KO mice) and CDKi treatment - P5"
+title: "HHT disease model (ALK1 KO mice) and CDKi treatment - P5"
 output: html_notebook
 author: Uma Paila
 Date: Jan 26th 2023
@@ -12,18 +12,6 @@ We will study the expression of cell cycle genes, arterio-venous identity, BMP s
 ALK1 or ACVRL1
 # Smooth muscle marker - Acta2
 # CT and KO - Is there any new cluster/cell-type in KO
-
-############ lATEST EDITIONS TO MAKE FOR THE MANUSCRIPT
-### remove 10,11 unnamed clusters and then do rest
-### marker plot - line 355 (rearrange genes)
-### arterial and venous ident - save high resolution images
-### venous markers in VENous cluster - save high resolution images
-### arterial markers in arterial cluster - save high resolution images
-### TGFb_signaling_in_arterial - high resolution
-### Flt1 featureplot across all conditions
-### Arterial lG1 - final figure
-### eG1 & sg2m nick's - module scores
-
 
 ```{r setup, include=FALSE}
 # load required libraries
