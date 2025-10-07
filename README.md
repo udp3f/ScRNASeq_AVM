@@ -1,9 +1,9 @@
-Single-cell analysis to show endothelial dysregulation in Arteriovenous Malformations (AVM) in Hereditary Hemorrhagic Telangiectasia
+Endothelial dysregulation in Arteriovenous Malformations (AVM) in Hereditary Hemorrhagic Telangiectasia
 ====================================================================================================================================
 
 Notes
 =====
-This repository has the R code for the analysis of the single-cell data from the Alk1 rodent model of HHT, that was part of the below publication in ``Circulation``.
+This repository has the R code for the analysis of the ``single-cell data`` from the Alk1 rodent model of HHT, that was part of the below publication in ``Circulation``.
 
 Citation
 =====================
